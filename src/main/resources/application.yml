@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    username: root
+    password: thdtjdghks@
+    url: jdbc:mysql://localhost:3306/smoking
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        show_sql: true
+        format_sql: true
+        use_sql_comments: true
+        default_batch_fetch_size: 1000
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.jdbc.core: DEBUG
+
+google:
+  maps:
+    api-key: AIzaSyAy6Rh0l97Joh1bEAgxOrg56EuXt1ZWE_E
+    directions-url: "https://maps.googleapis.com/maps/api/directions/json"
