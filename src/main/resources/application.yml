@@ -29,5 +29,5 @@ logging:
 
 google:
   maps:
-    api-key: AIzaSyAy6Rh0l97Joh1bEAgxOrg56EuXt1ZWE_E
+    api-key: ${key}
     directions-url: "https://maps.googleapis.com/maps/api/directions/json"

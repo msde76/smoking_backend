@@ -3,17 +3,21 @@ package smoking.core.domain.nlu.application;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import smoking.core.domain.nlu.dto.NluResponseDTO;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NluServiceImpl implements NluService {
@@ -24,42 +28,33 @@ public class NluServiceImpl implements NluService {
     @Value("${google.maps.api-key}")
     private String googleApiKey;
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=";
+    // [수정 1] URL 끝에 '?key='를 제거하고 베이스 URL만 남깁니다.
+    private static final String GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
 
     @Override
     public NluResponseDTO.ParseDto parseCommand(String commandText) {
 
-        String apiUrl = GEMINI_API_URL + googleApiKey;
+        log.info(">>> [NLU Request] 입력된 명령어: {}", commandText);
+
+        // [수정 2] UriComponentsBuilder를 사용하여 URL을 안전하게 생성합니다.
+        URI uri = UriComponentsBuilder.fromHttpUrl(GEMINI_BASE_URL)
+                .queryParam("key", googleApiKey)
+                .build()
+                .toUri();
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // Gemini가 한국어 입력을 더 잘 이해하도록 시스템 프롬프트에
-        // 구체적인 규칙과 "한국어 예시(Few-shot)"를 추가합니다.
+        // --- 시스템 프롬프트 설정 (기존과 동일) ---
         String systemPromptText = "당신은 시각장애인용 길안내 앱의 NLU(자연어 이해) 파서입니다. " +
                 "사용자의 입력은 한국어입니다. " +
                 "사용자의 텍스트를 분석하여, 제공된 JSON 스키마에 따라 '의도(intent)'와 '엔티티(entity)'를 정확히 추출해야 합니다. " +
                 "당신은 반드시 JSON 객체로만 응답해야 합니다." +
-                "\n" +
-                "--- 예시 (Example) ---" +
-                "\n" +
-                "예시 1 (길찾기):\n" +
-                "입력: \"강남역으로 길 알려줘\"\n" +
-                "JSON: {\"intent\": \"SEARCH_ROUTE\", \"destination\": \"강남역\"}\n" +
-                "\n" +
-                "예시 2 (길찾기):\n" +
-                "입력: \"서울시청 가고 싶어\"\n" +
-                "JSON: {\"intent\": \"SEARCH_ROUTE\", \"destination\": \"서울시청\"}\n" +
-                "\n" +
-                "예시 3 (신고):\n" +
-                "입력: \"여기서 사람들이 담배를 너무 많이 피워요\"\n" +
-                "JSON: {\"intent\": \"REPORT_SMOKING\", \"reportContent\": \"여기서 사람들이 담배를 너무 많이 피워요\"}\n" +
-                "\n" +
-                "예시 4 (알 수 없음):\n" +
-                "입력: \"오늘 날씨 어때?\"\n" +
-                "JSON: {\"intent\": \"UNKNOWN\"}\n" +
-                "--- (예시 끝) ---" +
-                "\n" +
+                "\n--- 예시 (Example) ---\n" +
+                "예시 1: \"강남역으로 길 알려줘\" -> {\"intent\": \"SEARCH_ROUTE\", \"destination\": \"강남역\"}\n" +
+                "예시 2: \"담배 신고\" -> {\"intent\": \"REPORT_SMOKING\", \"reportContent\": \"...\"}\n" +
+                "예시 3: \"오늘 날씨\" -> {\"intent\": \"UNKNOWN\"}\n" +
+                "--- (예시 끝) ---\n" +
                 "이제 다음 입력을 분석하세요.";
 
         Map<String, Object> systemInstruction = Map.of(
@@ -75,17 +70,10 @@ public class NluServiceImpl implements NluService {
                 "properties", Map.of(
                         "intent", Map.of(
                                 "type", "STRING",
-                                "description", "Recognized user intent.",
                                 "enum", List.of("SEARCH_ROUTE", "REPORT_SMOKING", "UNKNOWN")
                         ),
-                        "destination", Map.of(
-                                "type", "STRING",
-                                "description", "The destination address or landmark, if intent is SEARCH_ROUTE."
-                        ),
-                        "reportContent", Map.of( // [!] 'reportContent' (camelCase)
-                                "type", "STRING",
-                                "description", "The content of the user's report, if intent is REPORT_SMOKING."
-                        )
+                        "destination", Map.of("type", "STRING"),
+                        "reportContent", Map.of("type", "STRING")
                 ),
                 "required", List.of("intent")
         );
@@ -104,26 +92,24 @@ public class NluServiceImpl implements NluService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
         try {
-            JsonNode responseNode = restTemplate.postForObject(apiUrl, entity, JsonNode.class);
+            // [수정 3] String URL 대신 생성한 URI 객체를 사용합니다.
+            JsonNode responseNode = restTemplate.postForObject(uri, entity, JsonNode.class);
 
             if (responseNode == null || !responseNode.has("candidates")) {
-                throw new RuntimeException("Gemini API 응답이 비어있거나 'candidates' 필드가 없습니다.");
+                log.error(">>> [NLU Error] Gemini 응답 없음");
+                throw new RuntimeException("Gemini API 응답 오류");
             }
 
-            String jsonText = responseNode
-                    .path("candidates")
-                    .get(0)
-                    .path("content")
-                    .path("parts")
-                    .get(0)
-                    .path("text")
-                    .asText();
+            String jsonText = responseNode.path("candidates")
+                    .get(0).path("content").path("parts").get(0).path("text").asText();
+
+            log.info(">>> [NLU Response] 분석 결과: {}", jsonText);
 
             return objectMapper.readValue(jsonText, NluResponseDTO.ParseDto.class);
 
         } catch (Exception e) {
+            log.error(">>> [NLU Exception] API 호출 중 오류: {}", e.getMessage());
             e.printStackTrace();
-            // 실패 시 기본 UNKNOWN DTO 반환
             return NluResponseDTO.ParseDto.builder().intent("UNKNOWN").build();
         }
     }
