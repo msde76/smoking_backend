@@ -10,6 +10,8 @@ import smoking.core.domain.report.dto.ReportResponseDTO;
 import smoking.core.global.common.response.BaseResponse;
 import smoking.core.global.error.code.status.SuccessStatus;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/reports")
 @RequiredArgsConstructor
@@ -26,6 +28,18 @@ public class ReportRestController {
             @RequestBody ReportRequestDTO.CreateReportDTO createReportDto
     ) {
         ReportResponseDTO.CreateReportDTO result = reportService.createReport(createReportDto);
+        return BaseResponse.onSuccess(SuccessStatus.OK, result);
+    }
+
+    @GetMapping("/device/{deviceId}")
+    @Operation(summary = "사용자 신고 내역 조회 API", description = "deviceId로 해당 사용자가 신고한 내역을 조회")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse( responseCode = "REPORT_200", description = "OK, 신고 내역 조회에 성공했습니다.")
+    })
+    public BaseResponse<List<ReportResponseDTO.ReportDetailDTO>> getReportsByDeviceId(
+            @PathVariable String deviceId
+    ) {
+        List<ReportResponseDTO.ReportDetailDTO> result = reportService.getReportsByDeviceId(deviceId);
         return BaseResponse.onSuccess(SuccessStatus.OK, result);
     }
 }

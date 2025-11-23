@@ -38,4 +38,17 @@ public class ReportConverter {
                 .reportDate(entity.getReportDate())
                 .build();
     }
+
+    public ReportResponseDTO.ReportDetailDTO toReportDetailDTO(UserReport entity) {
+        return ReportResponseDTO.ReportDetailDTO.builder()
+                .reportId(entity.getReportId())
+                .deviceId(entity.getDevice().getDeviceId())
+                .status(entity.getStatus().name())
+                .reportDate(entity.getReportDate())
+                .reportedLatitude(entity.getReportedLatitude())
+                .reportedLongitude(entity.getReportedLongitude())
+                .description(entity.getDescription())
+                .areaId(entity.getSmokingArea() != null ? entity.getSmokingArea().getAreaId() : null)
+                .build();
+    }
 }

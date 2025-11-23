@@ -15,6 +15,9 @@ import smoking.core.domain.smoking.domain.entity.SmokingArea;
 import smoking.core.domain.smoking.domain.repository.SmokingAreaRepository;
 import smoking.core.global.error.code.status.ErrorStatus;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class ReportServiceImpl implements ReportService{
@@ -48,5 +51,16 @@ public class ReportServiceImpl implements ReportService{
 
         // 5. 응답 DTO로 변환하여 반환
         return reportConverter.toCreateReportDTO(savedReport);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReportResponseDTO.ReportDetailDTO> getReportsByDeviceId(String deviceId) {
+        // 1. deviceId로 신고 내역 조회
+        List<UserReport> reports = userReportRepository.findByDevice_DeviceId(deviceId);
+
+        // 2. DTO로 변환하여 반환
+        return reports.stream()
+                .map(reportConverter::toReportDetailDTO)
+                .collect(Collectors.toList());
     }
 }
