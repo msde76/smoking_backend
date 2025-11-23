@@ -10,4 +10,6 @@ public interface ReportService {
     ReportResponseDTO.CreateReportDTO createReport(ReportRequestDTO.CreateReportDTO createReportDto);
 
     List<ReportResponseDTO.ReportDetailDTO> getReportsByDeviceId(String deviceId);
+
+    void deleteReport(Long reportId);
 }

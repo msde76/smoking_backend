@@ -26,6 +26,7 @@ public class ReportServiceImpl implements ReportService{
     private final DeviceRepository deviceRepository;
     private final SmokingAreaRepository smokingAreaRepository;
     private final ReportConverter reportConverter;
+    private final UserReportRepository reportRepository;
 
     @Transactional
     public ReportResponseDTO.CreateReportDTO createReport(
@@ -62,5 +63,15 @@ public class ReportServiceImpl implements ReportService{
         return reports.stream()
                 .map(reportConverter::toReportDetailDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional // 삭제는 쓰기 작업이므로 @Transactional 명시
+    public void deleteReport(Long reportId) {
+
+        UserReport report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new reportException(ErrorStatus._BAD_REQUEST));
+
+        reportRepository.delete(report);
     }
 }

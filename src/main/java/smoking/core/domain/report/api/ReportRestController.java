@@ -42,4 +42,16 @@ public class ReportRestController {
         List<ReportResponseDTO.ReportDetailDTO> result = reportService.getReportsByDeviceId(deviceId);
         return BaseResponse.onSuccess(SuccessStatus.OK, result);
     }
+
+    @DeleteMapping("/{reportId}")
+    @Operation(summary = "신고 삭제 API", description = "특정 신고 ID를 이용해 신고 내역을 삭제")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse( responseCode = "REPORT_200", description = "OK, 성공적으로 신고가 삭제되었습니다.")
+    })
+    public BaseResponse<Void> deleteReport(
+            @PathVariable Long reportId
+    ) {
+        reportService.deleteReport(reportId);
+        return BaseResponse.onSuccess(SuccessStatus.OK, null);
+    }
 }
