@@ -20,5 +20,7 @@ public class NluResponseDTO {
         private String destination; // 예: "강남역"
 
         private String reportContent; // 예: "여기서 담배 피워요"
+
+        private String controlAction; // 예: "상승", "하락", "초기화"
     }
 }

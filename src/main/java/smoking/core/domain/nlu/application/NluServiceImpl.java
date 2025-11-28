@@ -28,7 +28,6 @@ public class NluServiceImpl implements NluService {
     @Value("${google.maps.api-key}")
     private String googleApiKey;
 
-    // [수정 1] URL 끝에 '?key='를 제거하고 베이스 URL만 남깁니다.
     private static final String GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
 
     @Override
@@ -36,7 +35,6 @@ public class NluServiceImpl implements NluService {
 
         log.info(">>> [NLU Request] 입력된 명령어: {}", commandText);
 
-        // [수정 2] UriComponentsBuilder를 사용하여 URL을 안전하게 생성합니다.
         URI uri = UriComponentsBuilder.fromHttpUrl(GEMINI_BASE_URL)
                 .queryParam("key", googleApiKey)
                 .build()
@@ -45,7 +43,7 @@ public class NluServiceImpl implements NluService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // --- 시스템 프롬프트 설정 (기존과 동일) ---
+        // --- 시스템 프롬프트 설정 (새로운 예시 추가) ---
         String systemPromptText = "당신은 시각장애인용 길안내 앱의 NLU(자연어 이해) 파서입니다. " +
                 "사용자의 입력은 한국어입니다. " +
                 "사용자의 텍스트를 분석하여, 제공된 JSON 스키마에 따라 '의도(intent)'와 '엔티티(entity)'를 정확히 추출해야 합니다. " +
@@ -53,7 +51,10 @@ public class NluServiceImpl implements NluService {
                 "\n--- 예시 (Example) ---\n" +
                 "예시 1: \"강남역으로 길 알려줘\" -> {\"intent\": \"SEARCH_ROUTE\", \"destination\": \"강남역\"}\n" +
                 "예시 2: \"담배 신고\" -> {\"intent\": \"REPORT_SMOKING\", \"reportContent\": \"...\"}\n" +
-                "예시 3: \"오늘 날씨\" -> {\"intent\": \"UNKNOWN\"}\n" +
+                "예시 3: \"보이스 속도 올려\" -> {\"intent\": \"VOICE_SPEED_CONTROL\", \"controlAction\": \"상승\"}\n" +
+                "예시 4: \"목소리 톤 초기화\" -> {\"intent\": \"VOICE_TONE_CONTROL\", \"controlAction\": \"초기화\"}\n" +
+                "예시 5: \"화면 크기 낮춰줘\" -> {\"intent\": \"UI_SIZE_CONTROL\", \"controlAction\": \"하락\"}\n" +
+                "예시 6: \"오늘 날씨\" -> {\"intent\": \"UNKNOWN\"}\n" +
                 "--- (예시 끝) ---\n" +
                 "이제 다음 입력을 분석하세요.";
 
@@ -65,15 +66,27 @@ public class NluServiceImpl implements NluService {
                 "parts", List.of(Map.of("text", commandText))
         );
 
+        // --- JSON 스키마 설정 (새로운 Intent와 Entity 추가) ---
         Map<String, Object> jsonSchema = Map.of(
                 "type", "OBJECT",
                 "properties", Map.of(
                         "intent", Map.of(
                                 "type", "STRING",
-                                "enum", List.of("SEARCH_ROUTE", "REPORT_SMOKING", "UNKNOWN")
+                                "enum", List.of(
+                                        "SEARCH_ROUTE",
+                                        "REPORT_SMOKING",
+                                        "VOICE_SPEED_CONTROL", // 추가
+                                        "VOICE_TONE_CONTROL", // 추가
+                                        "UI_SIZE_CONTROL", // 추가
+                                        "UNKNOWN"
+                                )
                         ),
                         "destination", Map.of("type", "STRING"),
-                        "reportContent", Map.of("type", "STRING")
+                        "reportContent", Map.of("type", "STRING"),
+                        "controlAction", Map.of( // 추가: 제어 행동 (상승, 하락, 초기화)
+                                "type", "STRING",
+                                "enum", List.of("상승", "하락", "초기화")
+                        )
                 ),
                 "required", List.of("intent")
         );
@@ -92,7 +105,6 @@ public class NluServiceImpl implements NluService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
         try {
-            // [수정 3] String URL 대신 생성한 URI 객체를 사용합니다.
             JsonNode responseNode = restTemplate.postForObject(uri, entity, JsonNode.class);
 
             if (responseNode == null || !responseNode.has("candidates")) {
